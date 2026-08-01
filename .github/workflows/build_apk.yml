@@ -4,9 +4,7 @@ name: DursunVenture Android APK Build
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:  # Elle de tetikleyebilirsin
+  workflow_dispatch:
 
 jobs:
   build-apk:
@@ -15,136 +13,86 @@ jobs:
 
     steps:
 
-    # ── 1. REPO CLONE ─────────────────────────────────────
     - name: Repo'yu al
       uses: actions/checkout@v4
 
-    # ── 2. PYTHON KURULUMU ────────────────────────────────
     - name: Python 3.10 kur
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
 
-    # ── 3. JAVA (Android için şart) ───────────────────────
     - name: Java 17 kur
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
 
-    # ── 4. SİSTEM BAĞIMLILIKLARI ──────────────────────────
     - name: Sistem paketlerini kur
       run: |
         sudo apt-get update -qq
         sudo apt-get install -y \
-          build-essential \
-          git \
-          zip \
-          unzip \
-          libsdl2-dev \
-          libsdl2-image-dev \
-          libsdl2-mixer-dev \
-          libsdl2-ttf-dev \
-          libffi-dev \
-          libssl-dev \
-          zlib1g-dev \
-          libjpeg-dev \
-          libpng-dev \
-          autoconf \
-          libtool \
-          pkg-config \
-          ccache \
-          libltdl-dev
+          build-essential git zip unzip \
+          libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+          libffi-dev libssl-dev zlib1g-dev libjpeg-dev libpng-dev \
+          autoconf libtool pkg-config ccache
 
-    # ── 5. BUILDOZER & BAĞIMLILIKLAR ──────────────────────
     - name: pip bağımlılıklarını kur
       run: |
         python -m pip install --upgrade pip
-        pip install \
-          buildozer==1.5.0 \
-          cython==0.29.36 \
-          virtualenv \
-          kivy==2.3.0 \
-          pygame==2.5.2
+        pip install buildozer==1.5.0 cython==0.29.36 pygame==2.5.2
 
-    # ── 6. ANDROID SDK/NDK CACHE ──────────────────────────
     - name: Android SDK/NDK cache
       uses: actions/cache@v4
       with:
         path: |
           ~/.buildozer/android/platform/android-sdk
           ~/.buildozer/android/platform/android-ndk
-          ~/.buildozer/android/platform/apache-ant*
-        key: android-sdk-ndk-${{ runner.os }}-v3
-        restore-keys: |
-          android-sdk-ndk-${{ runner.os }}-
+        key: android-sdk-ndk-${{ runner.os }}-v4
+        restore-keys: android-sdk-ndk-${{ runner.os }}-
 
-    # ── 7. BUILDOZER CACHE ────────────────────────────────
     - name: Buildozer cache
       uses: actions/cache@v4
       with:
         path: |
           ~/.buildozer
           .buildozer
-        key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}-v2
-        restore-keys: |
-          buildozer-${{ runner.os }}-
+        key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}-v3
+        restore-keys: buildozer-${{ runner.os }}-
 
-    # ── 8. SPRİTE & SES ÜRET ──────────────────────────────
     - name: Sprite ve ses dosyalarını üret
       run: |
-        # Dummy display (headless)
         export SDL_VIDEODRIVER=dummy
         export SDL_AUDIODRIVER=dummy
         python3 sprite_gen.py
         cd assets/sounds && python3 gen_sounds.py && cd ../..
         python3 mapgen.py
-        echo "Üretilen dosyalar:"
-        ls assets/sprites/ | wc -l
-        ls assets/sounds/ | wc -l
 
-    # ── 9. BUILDOZER.SPEC DOĞRULA ─────────────────────────
-    - name: buildozer.spec kontrol
+    - name: Android SDK lisanslarını kabul et
       run: |
-        cat buildozer.spec | head -40
+        ANDROID_SDK=$HOME/.buildozer/android/platform/android-sdk
+        mkdir -p $ANDROID_SDK/licenses
+        printf "24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451eabf01fb78af6dfcb131a6481e" \
+          > $ANDROID_SDK/licenses/android-sdk-license
+        printf "84831b9409646a918e30573bab4c9c91346d8abd" \
+          > $ANDROID_SDK/licenses/android-sdk-preview-license
+        printf "33b6a2b64607f11b759f320ef9dff4ae5c47d97a" \
+          > $ANDROID_SDK/licenses/google-gdk-license
 
-    # ── 10. APK BUILD (DEBUG) ─────────────────────────────
     - name: APK build (debug)
       run: |
         export JAVA_HOME=$JAVA_HOME_17_X64
-        # Buildozer log level yükselt
-        buildozer -v android debug 2>&1 | tee build_log.txt || true
-        # APK var mı?
-        find . -name "*.apk" 2>/dev/null
+        export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+        yes | buildozer -v android debug 2>&1 | tee build_log.txt || true
+        echo "--- APK arama ---"
+        find . -name "*.apk" 2>/dev/null || echo "APK bulunamadi"
 
-    # ── 11. APK BULMAK ────────────────────────────────────
-    - name: APK dosyasını bul
-      id: find_apk
-      run: |
-        APK=$(find . -name "*.apk" | head -1)
-        echo "apk_path=$APK" >> $GITHUB_OUTPUT
-        echo "APK: $APK"
-        ls -lh "$APK" || echo "APK bulunamadı!"
-
-    # ── 12. APK'YI ARTIFACT OLARAK KAYDET ────────────────
-    - name: APK'yı kaydet (artifact)
+    - name: APK artifact kaydet
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: DursunVenture-debug-apk
         path: |
-          **/*.apk
+          bin/*.apk
           build_log.txt
         retention-days: 30
         if-no-files-found: warn
-
-    # ── 13. BUILD LOGU KAYDET (hata durumunda) ────────────
-    - name: Build logunu kaydet
-      uses: actions/upload-artifact@v4
-      if: failure()
-      with:
-        name: build-log-failure
-        path: |
-          build_log.txt
-          .buildozer/logs/
-        retention-days: 7
