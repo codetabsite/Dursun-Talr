@@ -1,0 +1,150 @@
+name: DursunVenture Android APK Build
+# Repo: https://github.com/codetabsite/Dursun-Talr
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Elle de tetikleyebilirsin
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+
+    steps:
+
+    # ── 1. REPO CLONE ─────────────────────────────────────
+    - name: Repo'yu al
+      uses: actions/checkout@v4
+
+    # ── 2. PYTHON KURULUMU ────────────────────────────────
+    - name: Python 3.10 kur
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    # ── 3. JAVA (Android için şart) ───────────────────────
+    - name: Java 17 kur
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    # ── 4. SİSTEM BAĞIMLILIKLARI ──────────────────────────
+    - name: Sistem paketlerini kur
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y \
+          build-essential \
+          git \
+          zip \
+          unzip \
+          libsdl2-dev \
+          libsdl2-image-dev \
+          libsdl2-mixer-dev \
+          libsdl2-ttf-dev \
+          libffi-dev \
+          libssl-dev \
+          zlib1g-dev \
+          libjpeg-dev \
+          libpng-dev \
+          autoconf \
+          libtool \
+          pkg-config \
+          ccache \
+          libltdl-dev
+
+    # ── 5. BUILDOZER & BAĞIMLILIKLAR ──────────────────────
+    - name: pip bağımlılıklarını kur
+      run: |
+        python -m pip install --upgrade pip
+        pip install \
+          buildozer==1.5.0 \
+          cython==0.29.36 \
+          virtualenv \
+          kivy==2.3.0 \
+          pygame==2.5.2
+
+    # ── 6. ANDROID SDK/NDK CACHE ──────────────────────────
+    - name: Android SDK/NDK cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.buildozer/android/platform/android-sdk
+          ~/.buildozer/android/platform/android-ndk
+          ~/.buildozer/android/platform/apache-ant*
+        key: android-sdk-ndk-${{ runner.os }}-v3
+        restore-keys: |
+          android-sdk-ndk-${{ runner.os }}-
+
+    # ── 7. BUILDOZER CACHE ────────────────────────────────
+    - name: Buildozer cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.buildozer
+          .buildozer
+        key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}-v2
+        restore-keys: |
+          buildozer-${{ runner.os }}-
+
+    # ── 8. SPRİTE & SES ÜRET ──────────────────────────────
+    - name: Sprite ve ses dosyalarını üret
+      run: |
+        # Dummy display (headless)
+        export SDL_VIDEODRIVER=dummy
+        export SDL_AUDIODRIVER=dummy
+        python3 sprite_gen.py
+        cd assets/sounds && python3 gen_sounds.py && cd ../..
+        python3 mapgen.py
+        echo "Üretilen dosyalar:"
+        ls assets/sprites/ | wc -l
+        ls assets/sounds/ | wc -l
+
+    # ── 9. BUILDOZER.SPEC DOĞRULA ─────────────────────────
+    - name: buildozer.spec kontrol
+      run: |
+        cat buildozer.spec | head -40
+
+    # ── 10. APK BUILD (DEBUG) ─────────────────────────────
+    - name: APK build (debug)
+      run: |
+        export JAVA_HOME=$JAVA_HOME_17_X64
+        # Buildozer log level yükselt
+        buildozer -v android debug 2>&1 | tee build_log.txt || true
+        # APK var mı?
+        find . -name "*.apk" 2>/dev/null
+
+    # ── 11. APK BULMAK ────────────────────────────────────
+    - name: APK dosyasını bul
+      id: find_apk
+      run: |
+        APK=$(find . -name "*.apk" | head -1)
+        echo "apk_path=$APK" >> $GITHUB_OUTPUT
+        echo "APK: $APK"
+        ls -lh "$APK" || echo "APK bulunamadı!"
+
+    # ── 12. APK'YI ARTIFACT OLARAK KAYDET ────────────────
+    - name: APK'yı kaydet (artifact)
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: DursunVenture-debug-apk
+        path: |
+          **/*.apk
+          build_log.txt
+        retention-days: 30
+        if-no-files-found: warn
+
+    # ── 13. BUILD LOGU KAYDET (hata durumunda) ────────────
+    - name: Build logunu kaydet
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: build-log-failure
+        path: |
+          build_log.txt
+          .buildozer/logs/
+        retention-days: 7

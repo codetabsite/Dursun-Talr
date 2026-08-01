@@ -1,0 +1,25 @@
+# Build
+.buildozer/
+bin/
+*.apk
+*.aab
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Üretilen dosyalar (Actions tarafından üretilir)
+assets/sprites/*.png
+assets/sounds/*.wav
+map_data.json
+save.json
+
+# Geçici
+*.log
+build_log.txt
+.DS_Store
+Thumbs.db
