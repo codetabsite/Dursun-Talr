@@ -20,11 +20,10 @@ warn_on_root = 1
 
 [android]
 android.minapi = 21
-android.api = 33
-android.ndk = 25b
-android.build_tools_version = 34.0.0
+android.api = 31
+android.ndk = 23b
+android.build_tools_version = 31.0.0
 android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,VIBRATE
 android.archs = arm64-v8a
-android.debug_artifact = apk
 p4a.branch = master
 p4a.bootstrap = sdl2

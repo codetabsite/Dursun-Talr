@@ -1,3 +1,5 @@
+from touch_controls import TouchControls
+ANDROID = os.path.exists("/data/data") or os.environ.get("ANDROID_ARGUMENT") is not None
 import pygame, sys, math, random, os, json, ast
 from dialogues import NPC_DIALOGUES, DUMAN_DIALOGUES, ALGO_DIALOGUES, \
     SIGN_DIALOGUES, ENDING_SLIDES, SHOP_DIALOGUES, YENI_DUSMAN_DIALOGUES
@@ -1350,6 +1352,7 @@ title_scr=TitleScreen()
 overworld=Overworld()
 gameover=GameOver()
 ending=None
+touch = TouchControls(SW, SH)
 kp={}; kj={}; running=True
 FS=True
 
@@ -1362,11 +1365,19 @@ while running:
             if ev.key==pygame.K_ESCAPE: running=False
             if ev.key==pygame.K_F11: FS=not FS; set_screen(FS)
         elif ev.type==pygame.KEYUP: kp[ev.key]=False
+        elif ev.type in (pygame.FINGERDOWN, pygame.FINGERMOTION, pygame.FINGERUP):
+            touch.handle_event(ev)
     raw=pygame.key.get_pressed()
     for k in [pygame.K_LEFT,pygame.K_RIGHT,pygame.K_UP,pygame.K_DOWN,
                pygame.K_z,pygame.K_RETURN,pygame.K_x,pygame.K_BACKSPACE,
                pygame.K_s,pygame.K_q,pygame.K_j]:
         kp[k]=raw[k]
+    touch_kp = touch.get_keys_pressed()
+    touch_kj = touch.get_keys_just_pressed()
+    for k,v in touch_kp.items():
+        if v: kp[k] = True
+    for k,v in touch_kj.items():
+        if v: kj[k] = True
 
     canvas.fill(BLACK)
     scene=player["scene"]
@@ -1400,6 +1411,8 @@ while running:
 
     scaled=pygame.transform.scale(canvas,(SW,SH))
     screen.blit(scaled,(0,0))
+    if ANDROID:
+        touch.draw(screen)
     pygame.display.flip()
     clock.tick(FPS)
 
