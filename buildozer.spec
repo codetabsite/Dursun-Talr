@@ -9,7 +9,7 @@ source.include_patterns = assets/**,*.py,*.json
 source.exclude_exts = spec,pyc
 source.exclude_dirs = .git,.github,__pycache__
 version = 6.0
-requirements = python3,pygame
+requirements = python3,kivy,pygame
 icon.filename = %(source.dir)s/assets/sprites/icon.png
 orientation = landscape
 fullscreen = 1
@@ -20,10 +20,11 @@ warn_on_root = 1
 
 [android]
 android.minapi = 21
-android.api = 31
-android.ndk = 23b
-android.build_tools_version = 31.0.0
+android.api = 33
+android.ndk = 28c
+android.build_tools_version = 33.0.2
 android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,VIBRATE
 android.archs = arm64-v8a
+android.cmdline_tools_version = 11.0
 p4a.branch = master
 p4a.bootstrap = sdl2
